@@ -1,9 +1,10 @@
 import {DataAPIClient} from "@datastax/astra-db-ts"
 import { PuppeteerWebBaseLoader } from "@langchain/community/document_loaders/web/puppeteer";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-
 import openai from "openai"
 import "dotenv/config"
+
+type similarityMetric = "dot_product" | "cosine" | "euclidean"
 
 const {
     ASTRA_DB_NAMESPACE, 
@@ -26,3 +27,16 @@ const f1Data = [
 
 const client = new DataAPIClient(ASTRA_DB_APPLICATION_TOKEN);
 const db = client.db(ASTRA_DB_ENDPOINT!, {keyspace: ASTRA_DB_NAMESPACE});
+const splinter = new RecursiveCharacterTextSplitter({
+    chunkSize: 512,
+    chunkOverlap: 100
+}) 
+const createCollection = async(similarityMetric: similarityMetric = "dot_product") =>{
+    const res = await db.createCollection(ASTRA_DB_COLLECTION, {
+        vector: {
+            dimension: 1536,
+            metric: similarityMetric
+        }
+    })
+    console.log(res)
+}
