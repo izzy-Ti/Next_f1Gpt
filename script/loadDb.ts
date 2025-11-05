@@ -21,13 +21,10 @@ const openAi = new openai({ baseURL: "https://router.huggingface.co/v1", apiKey:
 
 
 const f1Data = [
-    'https://www.astu.edu.et/9-about-astu',
-    'https://www.tuumz.com/listing/adama-science-and-technology-university-astu/',
-    'https://en.wikipedia.org/wiki/Adama_Science_and_Technology_University',
-    'https://en.wikipedia.org/wiki/Education_in_Ethiopia',
-    'https://en.wikipedia.org/wiki/Higher_education_in_Ethiopia'
-
+    'https://izzyt.netlify.app',
+    'https://github.com/izzy-Ti',
 ]
+
 const client = new InferenceClient(HF_API_KEY);
 const Client = new DataAPIClient(ASTRA_DB_APPLICATION_TOKEN);
 const db = Client.db(ASTRA_DB_ENDPOINT!, {keyspace: ASTRA_DB_NAMESPACE});
@@ -38,14 +35,12 @@ const splinter = new RecursiveCharacterTextSplitter({
 const createCollection = async(similarityMetric: similarityMetric = "dot_product") =>{
     const res = await db.createCollection(ASTRA_DB_COLLECTION, {
         vector: {
-            dimension: 1536,
+            dimension: 768,
             metric: similarityMetric
         }
     })
     console.log(res)
 }
-
-
 // const client = new InferenceClient(process.env.HF_TOKEN);
 
 // const output = await client.featureExtraction({
@@ -63,15 +58,18 @@ const loadSampleData = async() =>{
         const chunks = await splinter.splitText(content)
         for await ( const chunk of chunks){
             const embedding = await client.featureExtraction({
-                model: "Qwen/Qwen3-Embedding-0.6B",
+                model:  "sentence-transformers/all-distilroberta-v1",
                 inputs: chunk,
                 provider: "hf-inference",
             })
-            console.log(embedding)
+            const res = await collection.insertOne({
+                $vector: embedding,
+                tesxt: chunk
+            })
+            console.log(res)
         }
     }
 }
-
 const scrapPage = async (url: string) =>{
     const loader = new PuppeteerWebBaseLoader(url, {
         launchOptions: {
