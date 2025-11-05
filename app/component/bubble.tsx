@@ -1,11 +1,12 @@
 import React from 'react'
 
-const bubble = () => {
+const Bubble = ({message}) => {
+    const {content, role} = message
   return (
     <div>
-      
+      {content}
     </div>
   )
 }
 
-export default bubble
+export default Bubble

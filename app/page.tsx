@@ -3,12 +3,24 @@ import Image from "next/image";
 import logo from './assets/logo.jpg'
 import { useChat } from 'ai/react';
 import { Message } from "ai";
+import Bubble from "./component/Bubble";
+import Loadingbubble from "./component/Loadingbubble";
+import PromptSuggestionRow from "./component/PromptSuggestionRow";
 
 export default function Home() {
 
   const {append, isLoading, messages, input, handleInputChange, handleSubmit} = useChat()
 
-  const noMessages = messages.length === 0;
+  const noMessages = messages.length === 0 || !messages;
+
+  const onPromptClick = (text) =>{
+    const msg ={
+      id : crypto.randomUUID,
+      content: text,
+      role: 'user'
+    }
+    append(msg)
+  }
 
   return (
     <main className="min-h-screen bg-black text-white p-6 flex flex-col items-center justify-center">
@@ -34,31 +46,15 @@ export default function Home() {
                 <span className="text-blue-400 font-semibold mt-4 inline-block">
                   We hope you enjoy the conversation!
                 </span>
+                <br/>
+                <PromptSuggestionRow onPromptClick={onPromptClick} />
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {messages.map((message: Message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-2xl p-4 ${
-                      message.role === 'user'
-                        ? 'bg-blue-600/20 border border-blue-500/50 text-blue-100 shadow-lg shadow-blue-500/30'
-                        : 'bg-gray-800/80 border border-blue-400/30 text-gray-100 shadow-lg shadow-blue-400/20'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap leading-relaxed">
-                      {message.content}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <>
+            {messages.map((message, index) =><Bubble key={index} message={message}/>)}
+              {isLoading && <Loadingbubble />}
+            </>
           )}
         </div>
 
