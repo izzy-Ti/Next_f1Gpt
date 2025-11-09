@@ -14,7 +14,7 @@ const {
     HF_API_KEY
 } = process.env
 
-const openAi = new OpenAI({ baseURL: "https://router.huggingface.co/v1", apiKey: HF_API_KEY})
+const openAi = new OpenAI({ baseURL: 'https://api.deepseek.com', apiKey: DEEPSEEK_API_KEY})
 
 const hfClient = new InferenceClient(HF_API_KEY);
 
@@ -32,18 +32,28 @@ export async function POST(req: Request){
         let docContext = "" 
 
         const embedding = await hfClient.featureExtraction({
-            model:  "sentence-transformers/all-mpnet-base-v2",
+            model: "intfloat/multilingual-e5-large",
             inputs: lastMessage,
+            provider: "hf-inference",
         })
+        
+        // Flatten embedding to 1D array (1024 dimensions)
+        const embeddingVector = Array.isArray(embedding) 
+            ? embedding.flat(Infinity) as number[]
+            : [];
+        
+        if (embeddingVector.length !== 1024) {
+            throw new Error(`Invalid embedding dimension: expected 1024, got ${embeddingVector.length}`);
+        }
+        
         try{
             const collection = await db.collection(ASTRA_DB_COLLECTION)
-            const cursor  = collection.find( null, {
+            const cursor  = collection.find({}, {
                 sort: {
-                    $vector: embedding.flat(2) as number[],
+                    $vector: embeddingVector,
                 },
                 limit: 10
-                }
-            )
+            })
 
             const documents = await cursor.toArray()
             const docMap = documents?.map(doc=> doc.text)
@@ -76,20 +86,36 @@ export async function POST(req: Request){
             `
         }
 
-        const response = await hfClient.chatCompletion({
-            model:  "microsoft/DialoGPT-large", // Use chat model here
-            messages: [template, ...messages],
-            max_tokens: 500,
-        })
+        // Build prompt from messages for text generation
+        const userMessage = messages[messages.length - 1]?.content || "";
+        const prompt = `${template.content}\n\nUser: ${userMessage}\n\nAssistant:`;
+        
+        // Use free HuggingFace text generation (works better than chatCompletion for free models)
+        const response = await hfClient.textGeneration({
+            model: "google/flan-t5-base",
+            inputs: prompt,
+            parameters: {
+                max_new_tokens: 500,
+                temperature: 0.7,
+                return_full_text: false,
+            },
+        });
 
-        return new Response(JSON.stringify({
-            message: response.choices[0]?.message?.content
-        }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json'
+        // Convert to streaming response
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+            async start(controller) {
+                const content = response.generated_text || "I'm unable to process your request.";
+                const chunks = content.split(' ');
+                for (const chunk of chunks) {
+                    controller.enqueue(encoder.encode(chunk + ' '));
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                }
+                controller.close();
             }
-        })
+        });
+        
+        return new StreamingTextResponse(stream);
     }catch(error){
         console.log(error.message)
         return new Response(

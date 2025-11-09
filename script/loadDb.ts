@@ -35,7 +35,7 @@ const splinter = new RecursiveCharacterTextSplitter({
 const createCollection = async(similarityMetric: similarityMetric = "dot_product") =>{
     const res = await db.createCollection(ASTRA_DB_COLLECTION, {
         vector: {
-            dimension: 768,
+            dimension: 1024,
             metric: similarityMetric
         }
     })
@@ -58,7 +58,7 @@ const loadSampleData = async() =>{
         const chunks = await splinter.splitText(content)
         for await ( const chunk of chunks){
             const embedding = await client.featureExtraction({
-                model:  "sentence-transformers/all-distilroberta-v1",
+                model:  "intfloat/multilingual-e5-large",
                 inputs: chunk,
                 provider: "hf-inference",
             })
